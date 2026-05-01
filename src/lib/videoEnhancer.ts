@@ -106,9 +106,9 @@ async function enhanceWithFFmpeg(file: File, opts: EnhanceOptions): Promise<Enha
 
   onProgress({ step: 'rendering', percent: 50, overall: overall('rendering', 50), engine: 'ffmpeg', message: 'Rendering output…' });
   const data = await ff.readFile(outputName);
-  // Convert FileData (Uint8Array | string) to a real ArrayBuffer for Blob
   const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : (data as Uint8Array);
-  const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const ab = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(ab).set(bytes);
   const blob = new Blob([ab], { type: 'video/mp4' });
 
   // Cleanup
@@ -133,7 +133,9 @@ async function enhanceWithReplicate(file: File, opts: EnhanceOptions): Promise<E
   await ff.exec(['-i', 'in.mp4', '-vf', 'select=eq(n\\,0)', '-vframes', '1', '-q:v', '2', 'frame.jpg']);
   const frame = await ff.readFile('frame.jpg');
   const frameBytes = frame as Uint8Array;
-  const dataUrl = await blobToDataUrl(new Blob([frameBytes.buffer.slice(frameBytes.byteOffset, frameBytes.byteOffset + frameBytes.byteLength)], { type: 'image/jpeg' }));
+  const frameAB = new ArrayBuffer(frameBytes.byteLength);
+  new Uint8Array(frameAB).set(frameBytes);
+  const dataUrl = await blobToDataUrl(new Blob([frameAB], { type: 'image/jpeg' }));
   onProgress({ step: 'uploading', percent: 100, overall: overall('uploading', 100), engine: 'replicate' });
 
   // Step 2: analyzing → call Replicate
@@ -196,7 +198,8 @@ async function enhanceWithReplicate(file: File, opts: EnhanceOptions): Promise<E
 
   const out = await ff.readFile('out.mp4');
   const outBytes = out as Uint8Array;
-  const ab = outBytes.buffer.slice(outBytes.byteOffset, outBytes.byteOffset + outBytes.byteLength) as ArrayBuffer;
+  const ab = new ArrayBuffer(outBytes.byteLength);
+  new Uint8Array(ab).set(outBytes);
   const blob = new Blob([ab], { type: 'video/mp4' });
 
   try { await ff.deleteFile('in.mp4'); } catch {}
